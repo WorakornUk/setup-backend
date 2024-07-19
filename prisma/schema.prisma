@@ -1,0 +1,387 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Wrestlers
+model Wrestler {
+  id             Int     @id @default(autoincrement())
+  name           String
+  alias          String?
+  description    String? @db.Text
+  height         Int?
+  weight         Int?
+  signature_move String?
+  image_src      String?
+  fb             String?
+  x              String?
+  tk             String?
+  deleted        Boolean @default(false)
+
+  champions Champion[]
+}
+
+model Championship {
+  id             Int              @id @default(autoincrement())
+  name           String
+  prestige       Int
+  description    String?          @db.Text
+  type           ChampionshipType
+  image_src      String?
+  announced      DateTime         @default(now()) @db.Timestamp(0)
+  abandoned      DateTime?        @db.Timestamp(0)
+  current_reign  Int?
+  longest_reign  Int?
+  shortest_reign Int?
+  deleted        Boolean          @default(false)
+
+  champions Champion[]
+}
+
+model Champion {
+  id              Int       @id @default(autoincrement())
+  championship_id Int
+  wrestler_id     Int
+  date_started    DateTime  @default(now()) @db.Timestamp(0)
+  date_ended      DateTime? @db.Timestamp(0)
+
+  championship Championship @relation(fields: [championship_id], references: [id])
+  wrestler     Wrestler     @relation(fields: [wrestler_id], references: [id])
+
+  @@unique([championship_id, wrestler_id])
+}
+
+enum ChampionshipType {
+  ORIGINAL
+  PARTNERSHIP
+}
+
+//Cover
+model Cover {
+  id      Int     @id @default(autoincrement())
+  name    String
+  src     String
+  deleted Boolean @default(false)
+}
+
+// Videos
+model Video {
+  id          Int     @id @default(autoincrement())
+  category_id Int
+  src         String
+  thumbnail   String
+  title       String?
+  enlarged    Boolean @default(false)
+  deleted     Boolean @default(false)
+
+  category Category @relation(fields: [category_id], references: [id])
+}
+
+model Category {
+  id      Int          @id @default(autoincrement())
+  type    CategoryType
+  deleted Boolean      @default(false)
+
+  Video Video[]
+}
+
+enum CategoryType {
+  HIGHLIGHTS
+  SHOWS
+}
+
+// Ticket
+model Ticket {
+  id           Int      @id @default(autoincrement())
+  order_id     Int?
+  event_id     Int
+  user_id      Int?
+  price        Decimal  @db.Decimal(10, 2)
+  qr_path      String?
+  created_at   DateTime @default(now()) @db.Timestamp(0)
+  updated_at   DateTime @updatedAt @db.Timestamp(0)
+
+  event     Event    @relation(fields: [event_id], references: [id])
+  user      User?     @relation(fields: [user_id], references: [id])
+  order     Order?   @relation(fields: [order_id], references: [id])
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  stadium_id  Int
+  name        String
+  description String?  @db.Text
+  image_src   String
+  date        String
+  restriction String?  
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  updated_at  DateTime @updatedAt @db.Timestamp(0)
+  deleted     Boolean  @default(false)
+
+  stadium Stadium  @relation(fields: [stadium_id], references: [id])
+  tickets Ticket[]
+}
+
+model Stadium {
+  id          Int        @id @default(autoincrement())
+  name        String
+  location    String?
+  description String?    @db.VarChar(255)
+  image_src   String?
+
+  events      Event[]
+  seat_types  SeatType[]
+}
+
+model SeatType {
+  id         Int          @id @default(autoincrement())
+  stadium_id Int
+  name       SeatTypeName
+  price      Decimal      @db.Decimal(10, 2)
+  capacity   Int
+
+  stadium Stadium  @relation(fields: [stadium_id], references: [id])
+}
+
+enum SeatTypeName {
+  RING_SIDE
+  NORMAL
+}
+
+// User
+model User {
+  id         Int       @id @default(autoincrement())
+  rank_id    Int       @default(1)
+  first_name String
+  last_name  String
+  birth_date DateTime? @db.Timestamp(0)
+  email      String    @unique
+  password   String    @db.VarChar(256)
+  mobile     String?   @unique
+  points     Int       @default(0)
+  created_at DateTime  @default(now()) @db.Timestamp(0)
+  updated_at DateTime  @updatedAt @db.Timestamp(0)
+  deleted    Boolean   @default(false)
+  admin      Boolean   @default(false)
+
+  rank    Rank      @relation(fields: [rank_id], references: [id])
+  Ticket  Ticket[]
+  Address Address[]
+  Order   Order[]
+  Payment Payment[]
+  Cart    Cart[]
+}
+
+model Rank {
+  id        Int      @id @default(autoincrement())
+  name      RankType
+  image_src String?
+  min_point Int?
+  max_point Int?
+  User      User[]
+}
+
+model Address {
+  id           Int     @id @default(autoincrement())
+  user_id      Int
+  line         String
+  sub_district String
+  district     String
+  province     String
+  postal       String
+  deleted      Boolean @default(false)
+
+  user     User       @relation(fields: [user_id], references: [id])
+  Shipment Shipment[]
+}
+
+enum RankType {
+  BEGINNER
+  SKILLED
+  PRO
+  LEGENDARY
+  HALL_OF_FAMER
+}
+
+// Order
+model Order {
+  id           Int      @id @default(autoincrement())
+  user_id      Int
+  shipment_id  Int?
+  payment_id   Int?
+  voucher_id   Int?
+  status_id    Int      @default(1)
+  date         DateTime @default(now()) @db.Timestamp(0)
+  total_amount Decimal  @db.Decimal(10, 2)
+
+  user        User        @relation(fields: [user_id], references: [id])
+  shipment    Shipment?   @relation(fields: [shipment_id], references: [id])
+  payment     Payment?    @relation(fields: [payment_id], references: [id])
+  voucher     Voucher?    @relation(fields: [voucher_id], references: [id])
+  status      Status      @relation(fields: [status_id], references: [id])
+  order_items OrderItem[]
+  tickets     Ticket[]
+}
+
+model Status {
+  id    Int        @id @default(autoincrement())
+  name  StatusType
+  Order Order[]
+}
+
+enum StatusType {
+  PENDING
+  SENDING
+  SENT
+}
+
+model Shipment {
+  id             Int      @id @default(autoincrement())
+  address_id     Int
+  transporter_id Int
+  date           DateTime @default(now()) @db.Timestamp(0)
+
+  address     Address     @relation(fields: [address_id], references: [id])
+  transporter Transporter @relation(fields: [transporter_id], references: [id])
+  Order       Order[]
+}
+
+model Transporter {
+  id       Int             @id @default(autoincrement())
+  name     TransporterType
+  Shipment Shipment[]
+}
+
+enum TransporterType {
+  THAIPOST
+  KERRY
+  JT
+  FLASH
+  BEST
+}
+
+model Voucher {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  discount    Decimal  @db.Decimal(10, 2)
+  expiry_date DateTime @db.Timestamp(0)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  updated_at  DateTime @updatedAt @db.Timestamp(0)
+  deleted     Boolean  @default(false)
+  Order       Order[]
+}
+
+model OrderItem {
+  id         Int     @id @default(autoincrement())
+  order_id   Int
+  product_id Int
+  quantity   Int
+  price      Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [order_id], references: [id])
+  product Product @relation(fields: [product_id], references: [id])
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  tag_id      Int
+  name        String
+  description String?  @db.Text
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  updated_at  DateTime @updatedAt @db.Timestamp(0)
+  deleted     Boolean  @default(false)
+
+  tags      ProductTag[]
+  variants  Variant[]
+  OrderItem OrderItem[]
+  CartItem  CartItem[]
+}
+
+model ProductTag {
+  product_id Int
+  tag_id     Int
+
+  product Product @relation(fields: [product_id], references: [id])
+  tag     Tag     @relation(fields: [tag_id], references: [id])
+
+  @@id([product_id, tag_id])
+}
+
+model Tag {
+  id         Int          @id @default(autoincrement())
+  name       TagType
+  ProductTag ProductTag[]
+}
+
+enum TagType {
+  SHIRT
+  BELT
+}
+
+model Variant {
+  id         Int      @id @default(autoincrement())
+  product_id Int
+  size       String?
+  color      String?
+  price      Decimal  @db.Decimal(10, 2)
+  stock      Int
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @updatedAt @db.Timestamp(0)
+  deleted    Boolean  @default(false)
+
+  product  Product   @relation(fields: [product_id], references: [id])
+  pictures Picture[]
+}
+
+model Picture {
+  id         Int      @id @default(autoincrement())
+  variant_id Int
+  src        String
+  alt        String?
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @updatedAt @db.Timestamp(0)
+  deleted    Boolean  @default(false)
+
+  variant Variant @relation(fields: [variant_id], references: [id])
+}
+
+model Payment {
+  id             Int      @id @default(autoincrement())
+  user_id        Int
+  date           DateTime @default(now()) @db.Timestamp(0)
+  payment_method String?
+  amount         Decimal  @db.Decimal(10, 2)
+
+  user  User    @relation(fields: [user_id], references: [id])
+  Order Order[]
+}
+
+model Cart {
+  id       Int @id @default(autoincrement())
+  user_id  Int
+  quantity Int
+
+  user  User       @relation(fields: [user_id], references: [id])
+  items CartItem[]
+}
+
+model CartItem {
+  id         Int      @id @default(autoincrement())
+  cart_id    Int
+  product_id Int
+  quantity   Int
+  added_at   DateTime @default(now()) @db.Timestamp(0)
+
+  cart    Cart    @relation(fields: [cart_id], references: [id])
+  product Product @relation(fields: [product_id], references: [id])
+}
